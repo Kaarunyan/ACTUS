@@ -369,7 +369,91 @@ curl http://34.203.247.32:8083/eventsBatch \
 
 ---
 
-## 13. HOW TO USE THE EXCEL WORKBOOK
+## 13. SETTING UP THE EXCEL WORKBOOK
+
+Follow these steps **once** after downloading the file to install the ACTUS Engine button via VBA.
+
+### Step 1 — Open and Enable the Workbook
+
+1. Open `CARBON-ACTUS-Pro1.xlsm` in Excel
+2. If a yellow **Security Warning** bar appears at the top, click **Enable Content**
+3. If a **Protected View** bar appears, click **Enable Editing**
+4. If Excel asks about macros, select **Enable All Macros**
+
+> ⚠️ The workbook must be **fully enabled** before proceeding — the button will not work otherwise.
+
+---
+
+### Step 2 — Open the VBA Editor
+
+Press **`Alt + F11`** to open the Visual Basic for Applications (VBA) editor.
+
+---
+
+### Step 3 — Insert a New Module
+
+1. In the **Project panel** on the left side of the VBA editor, locate your workbook (e.g. `VBAProject (CARBON-ACTUS-Pro1.xlsm)`)
+2. **Right-click** on the project name
+3. Select **Insert → Module** from the context menu
+4. A new empty module window will open on the right
+
+---
+
+### Step 4 — Paste the VBA Code
+
+1. **Double-click** on the newly created module (e.g. `Module1`) in the Project panel to make sure it is active
+2. Click inside the empty code window on the right
+3. Paste the following code:
+
+```vba
+Sub AddACTUSButton()
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(2)
+    Dim shp As Shape
+    For Each shp In ws.Shapes
+        shp.Delete
+    Next shp
+    Dim btn As Object
+    Set btn = ws.Buttons.Add(5, 339, 250, 40)
+    btn.Caption = "SEND TO ACTUS ENGINE"
+    btn.OnAction = "SendToACTUS"
+    btn.Font.Name = "Calibri"
+    btn.Font.Size = 12
+    btn.Font.Bold = True
+    MsgBox "Done!", vbInformation
+End Sub
+
+Sub SendToACTUS()
+    ThisWorkbook.RefreshAll
+    MsgBox "Done! Check Response sheet.", vbInformation, "ACTUS"
+End Sub
+
+Sub ClearResponse()
+    ThisWorkbook.Sheets(3).Rows("7:100").ClearContents
+    MsgBox "Cleared.", vbInformation, "ACTUS"
+End Sub
+```
+
+---
+
+### Step 5 — Run the Setup Macro
+
+1. Press **`Alt + F5`** (or go to **Run → Run Macro** in the menu bar)
+2. In the macro dialog, select **`AddACTUSButton`**
+3. Click **Run**
+4. A confirmation message **"Done!"** will appear — click OK
+
+> ✅ The **SEND TO ACTUS ENGINE** button is now installed on the **⚙ Contracts** sheet at row 339. You only need to run this setup once.
+
+---
+
+### Step 6 — Save the Workbook
+
+Press **`Ctrl + S`** to save. If Excel asks about the file format, choose **Keep Current Format** (`.xlsm`) to preserve the macros.
+
+---
+
+## 14. HOW TO USE THE EXCEL WORKBOOK
 
 1. Open `CARBON-ACTUS-Pro.xlsm` — enable macros when prompted
 
@@ -395,7 +479,7 @@ curl http://34.203.247.32:8083/eventsBatch \
 
 ---
 
-## 14. WHAT MAKES THIS SIGNIFICANT
+## 15. WHAT MAKES THIS SIGNIFICANT
 
 ### Traditional approach:
 - Analyst builds a spreadsheet with hardcoded formulas
@@ -419,7 +503,7 @@ The contract algorithm does exactly what the legal agreement says — every time
 
 ---
 
-## 15. SCENARIO RESULTS (Base Inputs)
+## 16. SCENARIO RESULTS (Base Inputs)
 
 | | Scenario A | Scenario B | Scenario C |
 |---|---|---|---|
