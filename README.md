@@ -99,11 +99,11 @@ What hedging strategy protects John best?
 ### Step-by-step when you change an input:
 
 ```
-1. User changes a value in column C of ⚡ Inputs sheet
+1. User changes a value in the ⚡ Inputs sheet
    Example: price_stress from 28 → 15
 
-2. ACTUSInputs table (columns H-I) automatically updates
-   Because cell I10 contains formula =C14 (linked to input)
+2. ACTUSInputs table automatically updates
+   Because Value column is linked to the input cells by formula
 
 3. User clicks ▶ SEND TO ACTUS ENGINE button on ⚙ Contracts sheet
 
@@ -123,7 +123,7 @@ What hedging strategy protects John best?
    SwapNotional = swap_fixed × credits = 38 × 10,000 = 380,000
    FixedLegRate = swap_fixed / price_initial = 38/42 = 0.9048
 
-8. Power Query builds JSON contract payloads (see Section 6)
+8. Power Query builds JSON contract payloads
 
 9. HTTP POST to http://34.203.247.32:8083/eventsBatch
 
@@ -142,20 +142,20 @@ What hedging strategy protects John best?
 Located at **⚡ Inputs sheet, columns H-I**. Each cell in the Value column
 is a formula linked to the main input column C.
 
-| Row | Name | Formula | Current Value |
-|---|---|---|---|
-| H8 | credits | =C12 | 10,000 |
-| H9 | price_initial | =C13 | $42.00 |
-| H10 | price_stress | =C14 | $28.00 |
-| H11 | price_recovery | =C15 | $35.00 |
-| H12 | loan_notional | =C16 | $280,000 |
-| H13 | loan_start | =C17 | 2026-01-01 |
-| H14 | loan_maturity | =C18 | 2027-01-01 |
-| H15 | swap_fixed | =C19 | $38.00 |
-| H16 | insurance_rate | =C20 | 2% |
-| H17 | loan_rate | =C21 | 7% |
+| Name | Description | Current Value |
+|---|---|---|
+| credits | Carbon Credits Held | 10,000 |
+| price_initial | Carbon Price at origination | $42.00 |
+| price_stress | Carbon Price at VCM crisis | $28.00 |
+| price_recovery | Carbon Price at recovery | $35.00 |
+| loan_notional | Loan Principal | $280,000 |
+| loan_start | Loan Start Date | 2026-01-01 |
+| loan_maturity | Loan Maturity Date | 2027-01-01 |
+| swap_fixed | Swap Fixed Price per credit | $38.00 |
+| insurance_rate | Insurance Premium Rate | 2% |
+| loan_rate | Loan Interest Rate | 7% |
 
-**Any change to column C flows automatically into Power Query.**
+**Any change to the main inputs automatically flows into Power Query.**
 
 ---
 
@@ -188,12 +188,11 @@ John has no hedge — if price falls, only the loan interest applies but margin 
 Three contracts:
 
 **1. carbonLOAN01-B (PAM)**
-- Same as Scenario A loan
 - $280,000 at 7% annually, quarterly payments
 
 **2. carbonSWAP-B (SWAPS wrapper)**
 - `deliverySettlement: "D"` — cash settled
-- Contains two legs:
+- Contains two PAM legs:
 
 **3a. carbonSWAP-B-FIXED (PAM — Fixed Leg)**
 - Notional: $38 × 10,000 = **$380,000**
@@ -205,13 +204,11 @@ Three contracts:
 - Rate resets quarterly via `CARBON_PRICE_RATIO` risk factor
 - EcoBank pays the floating carbon market price ratio
 
-**How the swap works:**
-- At Q2, carbon falls to $28. Ratio = 28/42 = 0.6667
-- Fixed leg: John pays 0.9048 × 380,000 × 0.25 = **$85,956**
-- Float leg: EcoBank pays 0.6667 × 380,000 × 0.25 = **$63,336**  
-  *(Wait — actually ACTUS nets these as the swap wrapper)*
-- Net: EcoBank pays John approximately (38-28) × 10,000 = **$100,000**
-- Margin call prevented — effective collateral restored
+**How the swap works at stress:**
+- Carbon falls to $28. Ratio = 28/42 = 0.6667
+- ACTUS computes both legs and nets them via SWAPS wrapper
+- Net effect: EcoBank pays John (38-28) × 10,000 = **$100,000**
+- Margin call prevented — effective collateral restored to $380,000
 
 ---
 
@@ -222,11 +219,10 @@ All contracts from Scenario B plus:
 **carbonINS_01-C (PAM)**
 - `contractRole: "BUY"` — insurance buyer
 - Notional: $42 × 10,000 = **$420,000** (full credit value)
-- Rate: 2% per year
-- Premium: $420,000 × 2% = **$8,400/year** ($2,100/quarter)
+- Rate: 2% per year → $8,400/year → $2,100/quarter
 - Risk factor: `CARBON_DELIVERY_INDEX`
 - Triggers payout if registry cancels credits (index < 0.85)
-- In this scenario: index stays at 1.0 (no cancellation event)
+- In base scenario: index stays at 1.0 (no cancellation event)
 
 ---
 
@@ -245,8 +241,8 @@ Values are **ratios** relative to the initial price ($42 = base 1.0).
 
 **Formula:** `RatioQ2 = price_stress / price_initial`
 
-This is computed dynamically in Power Query so changing `price_stress`
-in the Inputs sheet immediately changes the risk factor path sent to ACTUS.
+Changing `price_stress` in the Inputs sheet immediately changes the
+risk factor path sent to ACTUS.
 
 ---
 
@@ -263,8 +259,7 @@ in the Inputs sheet immediately changes the risk factor path sent to ACTUS.
 
 ## 9. POWER QUERY M CODE STRUCTURE
 
-Each of the 3 queries (`carbon_A_table.pq`, `carbon_B_table.pq`, `carbon_C_table.pq`)
-follows the same structure:
+Each of the 3 queries follows the same structure:
 
 ```
 1. Read ACTUSInputs table from Excel
@@ -327,16 +322,17 @@ When Power Query refreshes, these formulas automatically recalculate.
 
 ```
 carbon-contracts/
-├── CARBON-ACTUS-Pro.xlsm          ← Main Excel workbook (macro-enabled)
-├── dashA.json                      ← Original Postman collection (3 scenarios)
-├── CARBON-GREENCELL-3SCENARIO.json ← Full Postman collection
-├── README-CARBON-ACTUS.md          ← This file
+├── CARBON-ACTUS-Pro.xlsm           ← Main Excel workbook (macro-enabled)
+├── dashA.json                       ← Original Postman collection (3 scenarios)
+├── CARBON-GREENCELL-3SCENARIO.json  ← Full Postman collection
+├── README-CARBON-ACTUS.md           ← Technical reference (this file)
+├── README-CARBON-OVERVIEW.md        ← Plain English overview
 │
 └── powerquery/
-    ├── carbon_A_table.pq           ← Power Query M code — Scenario A
-    ├── carbon_B_table.pq           ← Power Query M code — Scenario B
-    ├── carbon_C_table.pq           ← Power Query M code — Scenario C
-    └── AddACTUSButton.vba          ← VBA button creator
+    ├── carbon_A_table.pq            ← Power Query M code — Scenario A
+    ├── carbon_B_table.pq            ← Power Query M code — Scenario B
+    ├── carbon_C_table.pq            ← Power Query M code — Scenario C
+    └── AddACTUSButton.vba           ← VBA button creator
 ```
 
 ---
@@ -371,39 +367,83 @@ curl http://34.203.247.32:8083/eventsBatch \
 
 ## 13. SETTING UP THE EXCEL WORKBOOK
 
-Follow these steps **once** after downloading the file to install the ACTUS Engine button via VBA.
+Follow these steps **once** after opening the file on a new PC.
+
+---
 
 ### Step 1 — Open and Enable the Workbook
 
-1. Open `CARBON-ACTUS-Pro1.xlsm` in Excel
-2. If a yellow **Security Warning** bar appears at the top, click **Enable Content**
+1. Open `CARBON-ACTUS-Pro.xlsm` in Excel
+2. If a yellow **Security Warning** bar appears, click **Enable Content**
 3. If a **Protected View** bar appears, click **Enable Editing**
 4. If Excel asks about macros, select **Enable All Macros**
 
-> ⚠️ The workbook must be **fully enabled** before proceeding — the button will not work otherwise.
+> ⚠️ The workbook must be fully enabled before proceeding.
 
 ---
 
-### Step 2 — Open the VBA Editor
+### Step 2 — Fix the Power Query Privacy Setting
 
-Press **`Alt + F11`** to open the Visual Basic for Applications (VBA) editor.
+This step allows Power Query to read Excel inputs AND call the ACTUS server
+in the same query. Without this, Excel blocks the connection with a firewall error.
+
+1. Go to **Data tab** in the Excel ribbon
+2. Click **Get Data** → **Query Options**
+3. In the left panel click **Privacy**
+4. Select **"Always ignore Privacy Level settings"**
+5. Click **OK**
+
+> ✅ This only needs to be done once per machine.
 
 ---
 
-### Step 3 — Insert a New Module
+### Step 3 — Connect Power Query Tables to the Response Sheet
 
-1. In the **Project panel** on the left side of the VBA editor, locate your workbook (e.g. `VBAProject (CARBON-ACTUS-Pro1.xlsm)`)
+This step loads ACTUS query results into the correct location in the Response sheet.
+
+1. Go to **Data tab** → click **Queries & Connections**
+   (a panel opens on the right showing Carbon_A, Carbon_B, Carbon_C)
+
+**For Carbon_A:**
+- Click the **📡 Response** sheet tab at the bottom of the workbook
+- Click on cell **A7**
+- Go back to **Data → Queries & Connections**
+- Right-click **Carbon_A** → **Load To**
+- Select **Table** and **Existing worksheet**
+- Click **OK** → click **OK** on the data loss warning
+
+**For Carbon_B:**
+- Click the **📡 Response** sheet tab
+- Click on cell **A16**
+- Right-click **Carbon_B** → **Load To** → Table → Existing worksheet → OK → OK
+
+**For Carbon_C:**
+- Click the **📡 Response** sheet tab
+- Click on cell **A42**
+- Right-click **Carbon_C** → **Load To** → Table → Existing worksheet → OK → OK
+
+> ✅ The three queries are now connected to the Response sheet.
+
+---
+
+### Step 4 — Open the VBA Editor
+
+Press **`Alt + F11`** to open the Visual Basic for Applications editor.
+
+---
+
+### Step 5 — Insert a New Module
+
+1. In the **Project panel** on the left, find your workbook
 2. **Right-click** on the project name
-3. Select **Insert → Module** from the context menu
-4. A new empty module window will open on the right
+3. Select **Insert → Module**
+4. A new empty module opens on the right
 
 ---
 
-### Step 4 — Paste the VBA Code
+### Step 6 — Paste the VBA Code
 
-1. **Double-click** on the newly created module (e.g. `Module1`) in the Project panel to make sure it is active
-2. Click inside the empty code window on the right
-3. Paste the following code:
+Click inside the empty code window and paste the following:
 
 ```vba
 Sub AddACTUSButton()
@@ -436,20 +476,22 @@ End Sub
 
 ---
 
-### Step 5 — Run the Setup Macro
+### Step 7 — Run the Setup Macro
 
-1. Press **`Alt + F5`** (or go to **Run → Run Macro** in the menu bar)
-2. In the macro dialog, select **`AddACTUSButton`**
+1. Press **`Alt + F5`** (or go to **Run → Run Macro**)
+2. Select **`AddACTUSButton`**
 3. Click **Run**
-4. A confirmation message **"Done!"** will appear — click OK
+4. A confirmation message **"Done!"** appears — click OK
 
-> ✅ The **SEND TO ACTUS ENGINE** button is now installed on the **⚙ Contracts** sheet at row 339. You only need to run this setup once.
+> ✅ The SEND TO ACTUS ENGINE button is now installed on the ⚙ Contracts sheet.
+> You only need to run this setup once.
 
 ---
 
-### Step 6 — Save the Workbook
+### Step 8 — Save the Workbook
 
-Press **`Ctrl + S`** to save. If Excel asks about the file format, choose **Keep Current Format** (`.xlsm`) to preserve the macros.
+Press **`Ctrl + S`**. If Excel asks about file format,
+choose **Keep Current Format** to preserve macros as `.xlsm`.
 
 ---
 
@@ -457,16 +499,14 @@ Press **`Ctrl + S`** to save. If Excel asks about the file format, choose **Keep
 
 1. Open `CARBON-ACTUS-Pro.xlsm` — enable macros when prompted
 
-2. Go to **⚡ Inputs sheet** — change any value in column C:
-   - Carbon Credits Held (C12)
-   - Carbon Price — Initial (C13)
-   - Carbon Price — Stress (C14)
-   - Carbon Price — Recovery (C15)
-   - Loan Principal (C16)
-   - Swap Fixed Price (C19)
-   - Insurance Premium Rate (C20)
+2. Go to **⚡ Inputs sheet** — change any value:
+   - Carbon Credits Held
+   - Carbon Price — Initial / Stress / Recovery
+   - Loan Principal
+   - Swap Fixed Price
+   - Insurance Premium Rate
 
-3. Go to **⚙ Contracts sheet** — review the 9 contracts
+3. Go to **⚙ Contracts sheet** — review all 9 contracts
    (values auto-update from inputs)
 
 4. Click **SEND TO ACTUS ENGINE** button
@@ -520,5 +560,5 @@ factory upgrade proceeds without interruption.
 
 ---
 
-*Built with ACTUS Risk Engine · AWS EC2 · Excel Power Query · VBA*  
+*Built with ACTUS Risk Engine · AWS EC2 · Excel Power Query · VBA*
 *GreenCell Industries Carbon Credit Risk Model · March 2026*
